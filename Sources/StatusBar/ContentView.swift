@@ -1,8 +1,10 @@
 import SwiftUI
+import ServiceManagement
 import StatusBarKit
 
 struct ContentView: View {
     let state: MonitorState
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -10,6 +12,18 @@ struct ContentView: View {
             Divider()
             buildsSection
             Divider()
+            Toggle("Launch at Login", isOn: $launchAtLogin)
+                .onChange(of: launchAtLogin) { _, newValue in
+                    do {
+                        if newValue {
+                            try SMAppService.mainApp.register()
+                        } else {
+                            try SMAppService.mainApp.unregister()
+                        }
+                    } catch {
+                        launchAtLogin = SMAppService.mainApp.status == .enabled
+                    }
+                }
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }

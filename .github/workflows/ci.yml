@@ -12,8 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build
-        run: swift build
-
       - name: Test
         run: swift test
+
+      - name: Build DMG
+        run: make dmg
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: StatusBar.dmg
+          path: .build/StatusBar.dmg
