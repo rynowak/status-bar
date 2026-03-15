@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test
+        run: swift test
+
+      - name: Build DMG
+        run: make dmg
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: .build/StatusBar.dmg
+          generate_release_notes: true
