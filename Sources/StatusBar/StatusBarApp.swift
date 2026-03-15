@@ -9,7 +9,9 @@ struct StatusBarApp: App {
         MenuBarExtra {
             ContentView(state: state)
         } label: {
-            Text(state.menuBarText)
+            let text = state.compactLabel
+            Text(text)
+                .monospacedDigit()
         }
         .menuBarExtraStyle(.window)
     }

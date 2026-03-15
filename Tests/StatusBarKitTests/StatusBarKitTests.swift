@@ -27,6 +27,15 @@ import Testing
     #expect(kind == .vbcsCompiler)
 }
 
+@Test func classifyMSBuildWorker() {
+    let kind = BuildMonitor.classify(arguments: [
+        "/usr/local/share/dotnet/dotnet",
+        "/usr/local/share/dotnet/sdk/10.0.201/MSBuild.dll",
+        "/noautoresponse", "/nologo", "/nodemode:1",
+    ])
+    #expect(kind == .msbuildWorker)
+}
+
 @Test func classifyNonBuildReturnsNil() {
     let kind = BuildMonitor.classify(arguments: [
         "/usr/local/share/dotnet/dotnet", "run",

@@ -9,21 +9,32 @@ public final class MonitorState {
     public private(set) var builds: [BuildProcess] = []
 
     private var previousTicks: CPUTicks? = nil
+    private var previousBuildCpuTimes: [Int32: Double] = [:]
 
-    public var menuBarText: String {
-        let memColor: String
-        if stats.availableMemoryGB > 8 {
-            memColor = "🟢"
-        } else if stats.availableMemoryGB > 4 {
-            memColor = "🟡"
-        } else {
-            memColor = "🔴"
+    public var memoryText: String {
+        String(format: "%4.1fG", stats.availableMemoryGB)
+    }
+
+    public var cpuText: String {
+        String(format: "%2.0f%%", stats.cpuUsagePercent)
+    }
+
+    public var compactLabel: String {
+        var parts = [memoryText]
+
+        if stats.cpuUsagePercent >= 10 {
+            parts.append("CPU \(cpuText)")
         }
 
-        let mem = String(format: "%.1fG", stats.availableMemoryGB)
-        let cpu = String(format: "%.0f%%", stats.cpuUsagePercent)
+        if !builds.isEmpty {
+            parts.append("🔨 \(builds.count)")
+        }
 
-        return "\(memColor) \(mem) │ CPU \(cpu) │ 🔨 \(builds.count)"
+        return parts.joined(separator: " │ ")
+    }
+
+    public var menuBarText: String {
+        compactLabel
     }
 
     public init() {
@@ -56,6 +67,17 @@ public final class MonitorState {
             cpuUsagePercent: cpuUsage
         )
 
-        builds = BuildMonitor.getActiveBuilds()
+        var newBuilds = BuildMonitor.getActiveBuilds()
+        var newCpuTimes: [Int32: Double] = [:]
+        for i in newBuilds.indices {
+            let pid = newBuilds[i].pid
+            newCpuTimes[pid] = newBuilds[i].cpuTimeSeconds
+            if let prev = previousBuildCpuTimes[pid] {
+                // Delta CPU seconds over ~1 second interval → percentage of one core
+                newBuilds[i].cpuPercent = max(0, newBuilds[i].cpuTimeSeconds - prev) * 100.0
+            }
+        }
+        previousBuildCpuTimes = newCpuTimes
+        builds = newBuilds
     }
 }

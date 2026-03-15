@@ -7,12 +7,16 @@ public struct BuildProcess: Sendable, Identifiable, Equatable {
     public let kind: Kind
     public let projectName: String?
     public let arguments: [String]
+    public let residentMemoryBytes: UInt64
+    public let cpuTimeSeconds: Double
+    public var cpuPercent: Double = 0
 
     public var id: Int32 { pid }
 
     public enum Kind: String, Sendable, Equatable {
         case dotnetBuild = "dotnet build"
         case dotnetMSBuild = "dotnet msbuild"
+        case msbuildWorker = "MSBuild worker"
         case vbcsCompiler = "VBCSCompiler"
     }
 
@@ -22,16 +26,35 @@ public struct BuildProcess: Sendable, Identifiable, Equatable {
         }
         return kind.rawValue
     }
+
+    public var memoryGB: Double {
+        Double(residentMemoryBytes) / 1_073_741_824
+    }
 }
 
 /// Scans the process table for .NET build-related processes.
 public enum BuildMonitor {
 
+    /// Process names to scan for in the process table.
+    static let trackedProcessNames: Set<String> = ["dotnet", "VBCSCompiler"]
+
     /// Returns all active .NET build processes.
     public static func getActiveBuilds() -> [BuildProcess] {
         var results: [BuildProcess] = []
 
-        for pid in getDotnetPids() {
+        for (pid, processName) in getBuildPids() {
+            let (mem, cpu) = getProcessResourceUsage(pid: pid)
+
+            // VBCSCompiler runs as its own binary, no need to parse args
+            if processName == "VBCSCompiler" {
+                results.append(
+                    BuildProcess(
+                        pid: pid, kind: .vbcsCompiler, projectName: nil,
+                        arguments: [],
+                        residentMemoryBytes: mem, cpuTimeSeconds: cpu))
+                continue
+            }
+
             guard let args = getProcessArguments(pid: pid), !args.isEmpty else { continue }
             guard let kind = classify(arguments: args) else { continue }
 
@@ -41,7 +64,9 @@ public enum BuildMonitor {
                     pid: pid,
                     kind: kind,
                     projectName: projectName,
-                    arguments: args
+                    arguments: args,
+                    residentMemoryBytes: mem,
+                    cpuTimeSeconds: cpu
                 ))
         }
 
@@ -50,16 +75,20 @@ public enum BuildMonitor {
 
     /// Classifies a dotnet process based on its arguments.
     public static func classify(arguments: [String]) -> BuildProcess.Kind? {
-        // Check for VBCSCompiler in any argument (it runs as dotnet exec VBCSCompiler.dll)
+        // Check for VBCSCompiler in any argument (can also run as dotnet exec VBCSCompiler.dll)
         for arg in arguments {
             if arg.contains("VBCSCompiler") {
                 return .vbcsCompiler
             }
         }
 
-        // Look for the subcommand (first argument after the dotnet executable path)
         guard arguments.count > 1 else { return nil }
-        let subcommand = arguments[1].lowercased()
+        let subcommand = (arguments[1] as NSString).lastPathComponent.lowercased()
+
+        // MSBuild worker nodes: dotnet MSBuild.dll /nodemode:1
+        if subcommand == "msbuild.dll" {
+            return .msbuildWorker
+        }
 
         switch subcommand {
         case "build":
@@ -87,8 +116,8 @@ public enum BuildMonitor {
 
     // MARK: - Private
 
-    /// Lists PIDs of all running dotnet processes using sysctl.
-    static func getDotnetPids() -> [pid_t] {
+    /// Lists PIDs of all tracked build-related processes using sysctl.
+    static func getBuildPids() -> [(pid: pid_t, name: String)] {
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
         var size: size_t = 0
         guard sysctl(&mib, 4, nil, &size, nil, 0) == 0, size > 0 else { return [] }
@@ -98,7 +127,7 @@ public enum BuildMonitor {
         guard sysctl(&mib, 4, &procs, &size, nil, 0) == 0 else { return [] }
 
         let actualCount = size / MemoryLayout<kinfo_proc>.size
-        var pids: [pid_t] = []
+        var results: [(pid: pid_t, name: String)] = []
 
         for i in 0..<actualCount {
             let proc = procs[i]
@@ -106,12 +135,12 @@ public enum BuildMonitor {
                 String(
                     cString: UnsafeRawPointer($0).assumingMemoryBound(to: CChar.self))
             }
-            if name == "dotnet" {
-                pids.append(proc.kp_proc.p_pid)
+            if trackedProcessNames.contains(name) {
+                results.append((pid: proc.kp_proc.p_pid, name: name))
             }
         }
 
-        return pids
+        return results
     }
 
     /// Reads the command line arguments for a process using sysctl KERN_PROCARGS2.
@@ -150,5 +179,17 @@ public enum BuildMonitor {
         }
 
         return args.isEmpty ? nil : args
+    }
+
+    /// Returns resident memory (bytes) and total CPU time (seconds) for a process.
+    static func getProcessResourceUsage(pid: pid_t) -> (memory: UInt64, cpuTime: Double) {
+        var info = proc_taskinfo()
+        let size = Int32(MemoryLayout<proc_taskinfo>.size)
+        let result = proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, size)
+        guard result == size else { return (0, 0) }
+
+        let mem = UInt64(info.pti_resident_size)
+        let cpuNanos = Double(info.pti_total_user + info.pti_total_system)
+        return (mem, cpuNanos / 1_000_000_000)
     }
 }

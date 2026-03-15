@@ -53,18 +53,36 @@ struct ContentView: View {
                 Text("No active builds")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(state.builds) { build in
+                ForEach(state.builds.filter { $0.kind != .msbuildWorker }) { build in
                     HStack {
                         Image(
                             systemName: build.kind == .vbcsCompiler
                                 ? "server.rack" : "hammer")
                         Text(build.displayName)
                         Spacer()
-                        Text("PID \(build.pid)")
+                        Text(formatResources(cpu: build.cpuPercent, mem: build.memoryGB))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                let workers = state.builds.filter({ $0.kind == .msbuildWorker })
+                let workerCount = workers.count
+                if workerCount > 0 {
+                    let totalCpu = workers.reduce(0.0) { $0 + $1.cpuPercent }
+                    let totalMem = workers.reduce(0.0) { $0 + $1.memoryGB }
+                    HStack {
+                        Image(systemName: "gearshape.2")
+                        Text("MSBuild workers (\(workerCount))")
+                        Spacer()
+                        Text(formatResources(cpu: totalCpu, mem: totalMem))
                             .foregroundStyle(.secondary)
                     }
                 }
             }
         }
+    }
+
+    private func formatResources(cpu: Double, mem: Double) -> String {
+        "\(String(format: "%.0f%%", cpu)) · \(String(format: "%.1f", mem))G"
     }
 }
