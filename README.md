@@ -12,7 +12,21 @@ Personal macOS menu bar app for monitoring system resources and .NET build activ
 
 ### From DMG
 
-Download `StatusBar.dmg` from the latest [CI run](../../actions), open it, and drag `Status Bar` to Applications.
+Download `StatusBar.dmg` from the latest [release](../../releases) or [CI run](../../actions), open it, and drag `Status Bar` to Applications.
+
+Since the app is ad-hoc signed (not notarized by Apple), macOS will block it on first launch. To allow it:
+
+1. **Right-click** the app in Applications → **Open** (don't double-click)
+2. Click **Open** in the Gatekeeper dialog
+
+Or from the terminal:
+
+```bash
+xattr -cr /Applications/StatusBar.app
+open /Applications/StatusBar.app
+```
+
+After the first launch it will open normally.
 
 ### From Source
 
@@ -24,6 +38,10 @@ make install
 make dmg
 # Output: .build/StatusBar.dmg
 ```
+
+### Launch at Login
+
+The app does **not** auto-start by default. To enable it, click the menu bar item and toggle **Launch at Login**. macOS will then start it automatically on every login. Toggling it off or removing the app disables it.
 
 ### Uninstall
 
