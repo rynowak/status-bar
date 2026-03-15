@@ -14,7 +14,8 @@ let package = Package(
         .executableTarget(
             name: "StatusBar",
             dependencies: ["StatusBarKit"],
-            path: "Sources/StatusBar"
+            path: "Sources/StatusBar",
+            exclude: ["Info.plist"]
         ),
         .target(
             name: "StatusBarKit",
