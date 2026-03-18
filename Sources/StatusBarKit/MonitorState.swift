@@ -7,6 +7,7 @@ import Observation
 public final class MonitorState {
     public private(set) var stats: SystemStats = .zero
     public private(set) var builds: [BuildProcess] = []
+    public private(set) var vsCodeProcesses: [BuildProcess] = []
 
     private var previousTicks: CPUTicks? = nil
     private var previousBuildCpuTimes: [Int32: Double] = [:]
@@ -73,11 +74,11 @@ public final class MonitorState {
             let pid = newBuilds[i].pid
             newCpuTimes[pid] = newBuilds[i].cpuTimeSeconds
             if let prev = previousBuildCpuTimes[pid] {
-                // Delta CPU seconds over ~1 second interval → percentage of one core
                 newBuilds[i].cpuPercent = max(0, newBuilds[i].cpuTimeSeconds - prev) * 100.0
             }
         }
         previousBuildCpuTimes = newCpuTimes
-        builds = newBuilds
+        builds = newBuilds.filter { !$0.isVSCodeProcess }
+        vsCodeProcesses = newBuilds.filter { $0.isVSCodeProcess }
     }
 }

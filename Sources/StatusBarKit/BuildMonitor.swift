@@ -11,6 +11,15 @@ public struct BuildProcess: Sendable, Identifiable, Equatable {
     public let cpuTimeSeconds: Double
     public var cpuPercent: Double = 0
 
+    public var isVSCodeProcess: Bool {
+        switch kind {
+        case .vsBuildServer, .vsCodeServer, .vsCodeServiceHost, .vsCodeServiceController, .roslynLanguageServer:
+            return true
+        default:
+            return false
+        }
+    }
+
     public var id: Int32 { pid }
 
     public enum Kind: String, Sendable, Equatable {

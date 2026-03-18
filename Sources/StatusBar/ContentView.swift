@@ -12,6 +12,8 @@ struct ContentView: View {
             Divider()
             buildsSection
             Divider()
+            vsCodeSection
+            Divider()
             Toggle("Launch at Login", isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, newValue in
                     do {
@@ -89,6 +91,28 @@ struct ContentView: View {
                         Text("MSBuild workers (\(workerCount))")
                         Spacer()
                         Text(formatResources(cpu: totalCpu, mem: totalMem))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private var vsCodeSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("VS Code (\(state.vsCodeProcesses.count))")
+                .font(.headline)
+
+            if state.vsCodeProcesses.isEmpty {
+                Text("No VS Code processes")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(state.vsCodeProcesses) { process in
+                    HStack {
+                        Image(systemName: "chevron.left.forwardslash.chevron.right")
+                        Text(process.displayName)
+                        Spacer()
+                        Text(formatResources(cpu: process.cpuPercent, mem: process.memoryGB))
                             .foregroundStyle(.secondary)
                     }
                 }
