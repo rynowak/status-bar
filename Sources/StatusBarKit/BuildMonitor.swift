@@ -11,6 +11,15 @@ public struct BuildProcess: Sendable, Identifiable, Equatable {
     public let cpuTimeSeconds: Double
     public var cpuPercent: Double = 0
 
+    public var isVSCodeProcess: Bool {
+        switch kind {
+        case .vsBuildServer, .vsCodeServer, .vsCodeServiceHost, .vsCodeServiceController, .roslynLanguageServer:
+            return true
+        default:
+            return false
+        }
+    }
+
     public var id: Int32 { pid }
 
     public enum Kind: String, Sendable, Equatable {
@@ -18,6 +27,11 @@ public struct BuildProcess: Sendable, Identifiable, Equatable {
         case dotnetMSBuild = "dotnet msbuild"
         case msbuildWorker = "MSBuild worker"
         case vbcsCompiler = "VBCSCompiler"
+        case vsBuildServer = "VS Code build server"
+        case vsCodeServer = "VS Code server"
+        case vsCodeServiceHost = "VS Code service host"
+        case vsCodeServiceController = "VS Code service controller"
+        case roslynLanguageServer = "Roslyn language server"
     }
 
     public var displayName: String {
@@ -36,7 +50,11 @@ public struct BuildProcess: Sendable, Identifiable, Equatable {
 public enum BuildMonitor {
 
     /// Process names to scan for in the process table.
-    static let trackedProcessNames: Set<String> = ["dotnet", "VBCSCompiler"]
+    static let trackedProcessNames: Set<String> = [
+        "dotnet", "VBCSCompiler",
+        "Microsoft.Visual",  // Code.Server, Code.ServiceHost, Code.ServiceController
+        "Microsoft.CodeAn",  // CodeAnalysis.LanguageServer
+    ]
 
     /// Returns all active .NET build processes.
     public static func getActiveBuilds() -> [BuildProcess] {
@@ -56,6 +74,18 @@ public enum BuildMonitor {
             }
 
             guard let args = getProcessArguments(pid: pid), !args.isEmpty else { continue }
+
+            // Native VS Code extension processes: classify by executable basename in argv[0]
+            if processName.hasPrefix("Microsoft.") {
+                guard let kind = classifyNativeProcess(executable: args[0]) else { continue }
+                results.append(
+                    BuildProcess(
+                        pid: pid, kind: kind, projectName: nil,
+                        arguments: args,
+                        residentMemoryBytes: mem, cpuTimeSeconds: cpu))
+                continue
+            }
+
             guard let kind = classify(arguments: args) else { continue }
 
             let projectName = extractProjectName(from: args)
@@ -90,11 +120,32 @@ public enum BuildMonitor {
             return .msbuildWorker
         }
 
+        // VS Code C# Dev Kit build server: dotnet ...BuildHost.dll
+        if subcommand.hasSuffix("buildhost.dll") {
+            return .vsBuildServer
+        }
+
         switch subcommand {
         case "build":
             return .dotnetBuild
         case "msbuild":
             return .dotnetMSBuild
+        default:
+            return nil
+        }
+    }
+
+    /// Classifies a native VS Code extension process by its executable path.
+    static func classifyNativeProcess(executable: String) -> BuildProcess.Kind? {
+        switch (executable as NSString).lastPathComponent {
+        case "Microsoft.VisualStudio.Code.Server":
+            return .vsCodeServer
+        case "Microsoft.VisualStudio.Code.ServiceHost":
+            return .vsCodeServiceHost
+        case "Microsoft.VisualStudio.Code.ServiceController":
+            return .vsCodeServiceController
+        case "Microsoft.CodeAnalysis.LanguageServer":
+            return .roslynLanguageServer
         default:
             return nil
         }
