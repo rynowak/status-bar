@@ -13,7 +13,7 @@ public final class MonitorState {
     private var previousBuildCpuTimes: [Int32: Double] = [:]
 
     public var memoryText: String {
-        String(format: "%4.1fG", stats.availableMemoryGB)
+        String(format: "%.1fG", stats.availableMemoryGB)
     }
 
     public var cpuText: String {
@@ -24,14 +24,14 @@ public final class MonitorState {
         var parts = [memoryText]
 
         if stats.cpuUsagePercent >= 10 {
-            parts.append("CPU \(cpuText)")
+            parts.append(cpuText)
         }
 
         if !builds.isEmpty {
-            parts.append("🔨 \(builds.count)")
+            parts.append("🔨\(builds.count)")
         }
 
-        return parts.joined(separator: " │ ")
+        return parts.joined(separator: " ")
     }
 
     public var menuBarText: String {
@@ -44,7 +44,7 @@ public final class MonitorState {
 
         Task { [weak self] in
             while true {
-                try? await Task.sleep(for: .seconds(1))
+                try await Task.sleep(for: .seconds(1))
                 guard let self else { return }
                 self.refresh()
             }

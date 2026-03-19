@@ -108,6 +108,7 @@ public enum SystemMonitor {
         guard current.total >= previous.total else { return 0 }
         let totalDelta = current.total - previous.total
         guard totalDelta > 0 else { return 0 }
+        guard current.active >= previous.active else { return 0 }
         let activeDelta = current.active - previous.active
         return min(Double(activeDelta) / Double(totalDelta) * 100.0, 100.0)
     }
