@@ -44,7 +44,7 @@ public final class MonitorState {
 
         Task { [weak self] in
             while true {
-                try? await Task.sleep(for: .seconds(1))
+                try await Task.sleep(for: .seconds(1))
                 guard let self else { return }
                 self.refresh()
             }
