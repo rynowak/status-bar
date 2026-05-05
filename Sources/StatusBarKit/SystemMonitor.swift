@@ -54,10 +54,11 @@ public enum SystemMonitor {
         }
 
         let pageSize = UInt64(getpagesize())
-        let available =
-            (UInt64(stats.free_count)
-                + UInt64(stats.inactive_count)
-                + UInt64(stats.purgeable_count)) * pageSize
+        let used =
+            (UInt64(stats.internal_page_count)
+                + UInt64(stats.wire_count)
+                + UInt64(stats.compressor_page_count)) * pageSize
+        let available = total > used ? total - used : 0
 
         return (available, total)
     }

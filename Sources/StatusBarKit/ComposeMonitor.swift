@@ -42,6 +42,11 @@ public enum ComposeMonitor {
         "/Applications/Docker.app/Contents/Resources/bin/docker",
     ]
 
+    public static func removeProject(project: String) {
+        guard let docker = findDocker() else { return }
+        _ = runCommand([docker, "compose", "-p", project, "down"])
+    }
+
     public static func getMonetProjects() -> [ComposeProject] {
         guard let docker = findDocker() else { return [] }
         guard let lsOutput = runCommand([docker, "compose", "ls", "--format", "json"]) else {
