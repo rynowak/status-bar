@@ -15,7 +15,8 @@ let package = Package(
             name: "StatusBar",
             dependencies: ["StatusBarKit"],
             path: "Sources/StatusBar",
-            exclude: ["Info.plist"]
+            exclude: ["Info.plist"],
+            resources: [.process("Resources")]
         ),
         .target(
             name: "StatusBarKit",

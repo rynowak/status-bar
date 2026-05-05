@@ -12,9 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         state = MonitorState()
 
-        statusItem = NSStatusBar.system.statusItem(withLength: 160)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.alignment = .right
             button.action = #selector(togglePopover(_:))
             button.target = self
         }
@@ -37,6 +36,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func scheduleUpdate() {
         withObservationTracking {
             statusItem.button?.title = state.menuBarText
+
+            let projects = state.composeProjects
+            let composeHealthy = projects.filter(\.isHealthy).count
+            let stats = state.stats
+            let usedGB = stats.totalMemoryGB - stats.availableMemoryGB
+            let memFraction = stats.totalMemoryGB > 0
+                ? usedGB / stats.totalMemoryGB : 0
+            let view = MenuBarGraphicsView(
+                cpuHistory: state.cpuHistory,
+                cpuPercent: stats.cpuUsagePercent,
+                memFraction: memFraction,
+                memUsedGB: usedGB,
+                composeHealthy: composeHealthy,
+                composeTotal: projects.count,
+                showSystemStats: state.showSystemStats,
+                showGraphics: state.showMenuBarGraphics)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
+            statusItem.button?.image = nil
+            if let cgImage = renderer.cgImage {
+                let scale = NSScreen.main?.backingScaleFactor ?? 2.0
+                let size = NSSize(
+                    width: CGFloat(cgImage.width) / scale,
+                    height: CGFloat(cgImage.height) / scale)
+                let image = NSImage(cgImage: cgImage, size: size)
+                image.isTemplate = false
+                statusItem.button?.image = image
+                statusItem.button?.imagePosition = .imageLeading
+            }
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in self?.scheduleUpdate() }
         }

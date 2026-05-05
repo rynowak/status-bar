@@ -6,16 +6,29 @@ import Observation
 @MainActor
 public final class MonitorState {
     public private(set) var stats: SystemStats = .zero
+    public private(set) var cpuHistory: [Double] = []
     public private(set) var builds: [BuildProcess] = []
     public private(set) var vsCodeProcesses: [BuildProcess] = []
     public private(set) var composeProjects: [ComposeProject] = []
+    public private(set) var killingProjects: Set<String> = []
+
+    public var showSystemStats: Bool {
+        didSet { UserDefaults.standard.set(showSystemStats, forKey: "showSystemStats") }
+    }
+
+    public var showMenuBarGraphics: Bool {
+        didSet { UserDefaults.standard.set(showMenuBarGraphics, forKey: "showMenuBarGraphics") }
+    }
+
+    private static let maxCPUHistory = 60
 
     private var previousTicks: CPUTicks? = nil
     private var previousBuildCpuTimes: [Int32: Double] = [:]
     private var composeTickCounter = 0
 
     public var memoryText: String {
-        String(format: "%.1fG", stats.availableMemoryGB)
+        let usedGB = stats.totalMemoryGB - stats.availableMemoryGB
+        return String(format: "%.0fG", usedGB)
     }
 
     public var cpuText: String {
@@ -23,21 +36,15 @@ public final class MonitorState {
     }
 
     public var compactLabel: String {
-        var parts = [memoryText]
+        var parts: [String] = []
 
-        if stats.cpuUsagePercent >= 10 {
+        if showSystemStats && !showMenuBarGraphics {
             parts.append(cpuText)
+            parts.append(memoryText)
         }
 
         if !builds.isEmpty {
             parts.append("🔨\(builds.count)")
-        }
-
-        if !composeProjects.isEmpty {
-            let healthy = composeProjects.filter(\.isHealthy).count
-            let total = composeProjects.count
-            let indicator = healthy == total ? "🟢" : "🟡"
-            parts.append("🐱\(indicator)\(healthy)/\(total)")
         }
 
         return parts.joined(separator: " ")
@@ -48,16 +55,32 @@ public final class MonitorState {
     }
 
     public init() {
+        UserDefaults.standard.register(defaults: ["showSystemStats": true, "showMenuBarGraphics": true])
+        showSystemStats = UserDefaults.standard.bool(forKey: "showSystemStats")
+        showMenuBarGraphics = UserDefaults.standard.bool(forKey: "showMenuBarGraphics")
         previousTicks = SystemMonitor.getCPUTicks()
         refresh()
 
         Task { [weak self] in
             while true {
-                try await Task.sleep(for: .seconds(1))
+                try await Task.sleep(for: .seconds(2))
                 guard let self else { return }
                 self.refresh()
             }
         }
+    }
+
+    public func killComposeProject(project: String) {
+        killingProjects.insert(project)
+        Task {
+            await Self.performRemoveProject(project: project)
+            self.killingProjects.remove(project)
+            self.refreshCompose()
+        }
+    }
+
+    nonisolated private static func performRemoveProject(project: String) async {
+        ComposeMonitor.removeProject(project: project)
     }
 
     private func refresh() {
@@ -76,6 +99,11 @@ public final class MonitorState {
             totalMemoryBytes: memory.total,
             cpuUsagePercent: cpuUsage
         )
+
+        cpuHistory.append(cpuUsage)
+        if cpuHistory.count > Self.maxCPUHistory {
+            cpuHistory.removeFirst(cpuHistory.count - Self.maxCPUHistory)
+        }
 
         var newBuilds = BuildMonitor.getActiveBuilds()
         var newCpuTimes: [Int32: Double] = [:]
