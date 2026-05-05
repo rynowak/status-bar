@@ -21,9 +21,10 @@ struct ContentView: View {
             }
 
             Divider()
-            HStack(spacing: 16) {
-                Toggle("Show System Stats", isOn: $state.showSystemStats)
-                Toggle("Launch at Login", isOn: $launchAtLogin)
+            HStack(spacing: 12) {
+                Toggle("System Stats", isOn: $state.showSystemStats)
+                Toggle("Graphs", isOn: $state.showMenuBarGraphics)
+                Toggle("Login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, newValue in
                         do {
                             if newValue {
@@ -225,6 +226,7 @@ struct MenuBarGraphicsView: View {
     let composeHealthy: Int
     let composeTotal: Int
     let showSystemStats: Bool
+    let showGraphics: Bool
 
     private let maxBars = 15
     private let barWidth: CGFloat = 1.5
@@ -236,7 +238,7 @@ struct MenuBarGraphicsView: View {
             composeIndicator
                 .padding(.trailing, showSystemStats ? 2 : 0)
 
-            if showSystemStats {
+            if showSystemStats && showGraphics {
                 verticalLabel("CPU")
 
                 HStack(alignment: .bottom, spacing: barSpacing) {

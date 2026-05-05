@@ -50,7 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 memUsedGB: usedGB,
                 composeHealthy: composeHealthy,
                 composeTotal: projects.count,
-                showSystemStats: state.showSystemStats)
+                showSystemStats: state.showSystemStats,
+                showGraphics: state.showMenuBarGraphics)
             let renderer = ImageRenderer(content: view)
             renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
             statusItem.button?.image = nil

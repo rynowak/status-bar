@@ -16,6 +16,10 @@ public final class MonitorState {
         didSet { UserDefaults.standard.set(showSystemStats, forKey: "showSystemStats") }
     }
 
+    public var showMenuBarGraphics: Bool {
+        didSet { UserDefaults.standard.set(showMenuBarGraphics, forKey: "showMenuBarGraphics") }
+    }
+
     private static let maxCPUHistory = 60
 
     private var previousTicks: CPUTicks? = nil
@@ -34,6 +38,11 @@ public final class MonitorState {
     public var compactLabel: String {
         var parts: [String] = []
 
+        if showSystemStats && !showMenuBarGraphics {
+            parts.append(cpuText)
+            parts.append(memoryText)
+        }
+
         if !builds.isEmpty {
             parts.append("🔨\(builds.count)")
         }
@@ -46,8 +55,9 @@ public final class MonitorState {
     }
 
     public init() {
-        UserDefaults.standard.register(defaults: ["showSystemStats": true])
+        UserDefaults.standard.register(defaults: ["showSystemStats": true, "showMenuBarGraphics": true])
         showSystemStats = UserDefaults.standard.bool(forKey: "showSystemStats")
+        showMenuBarGraphics = UserDefaults.standard.bool(forKey: "showMenuBarGraphics")
         previousTicks = SystemMonitor.getCPUTicks()
         refresh()
 
