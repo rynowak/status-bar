@@ -12,8 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         state = MonitorState()
 
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: 160)
         if let button = statusItem.button {
+            button.alignment = .right
             button.action = #selector(togglePopover(_:))
             button.target = self
         }
