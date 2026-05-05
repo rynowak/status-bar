@@ -97,11 +97,13 @@ public final class MonitorState {
     }
 
     private func refreshCompose() {
-        Task.detached { [weak self] in
-            let projects = ComposeMonitor.getMonetProjects()
-            await MainActor.run {
-                self?.composeProjects = projects
-            }
+        Task {
+            let projects = await Self.fetchComposeProjects()
+            self.composeProjects = projects
         }
+    }
+
+    nonisolated private static func fetchComposeProjects() async -> [ComposeProject] {
+        ComposeMonitor.getMonetProjects()
     }
 }
