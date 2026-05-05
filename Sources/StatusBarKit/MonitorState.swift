@@ -8,9 +8,11 @@ public final class MonitorState {
     public private(set) var stats: SystemStats = .zero
     public private(set) var builds: [BuildProcess] = []
     public private(set) var vsCodeProcesses: [BuildProcess] = []
+    public private(set) var composeProjects: [ComposeProject] = []
 
     private var previousTicks: CPUTicks? = nil
     private var previousBuildCpuTimes: [Int32: Double] = [:]
+    private var composeTickCounter = 0
 
     public var memoryText: String {
         String(format: "%.1fG", stats.availableMemoryGB)
@@ -29,6 +31,13 @@ public final class MonitorState {
 
         if !builds.isEmpty {
             parts.append("🔨\(builds.count)")
+        }
+
+        if !composeProjects.isEmpty {
+            let healthy = composeProjects.filter(\.isHealthy).count
+            let total = composeProjects.count
+            let indicator = healthy == total ? "🟢" : "🟡"
+            parts.append("🐱\(indicator)\(healthy)/\(total)")
         }
 
         return parts.joined(separator: " ")
@@ -80,5 +89,21 @@ public final class MonitorState {
         previousBuildCpuTimes = newCpuTimes
         builds = newBuilds.filter { !$0.isVSCodeProcess }
         vsCodeProcesses = newBuilds.filter { $0.isVSCodeProcess }
+
+        composeTickCounter += 1
+        if composeTickCounter == 1 || composeTickCounter % 5 == 0 {
+            refreshCompose()
+        }
+    }
+
+    private func refreshCompose() {
+        Task {
+            let projects = await Self.fetchComposeProjects()
+            self.composeProjects = projects
+        }
+    }
+
+    nonisolated private static func fetchComposeProjects() async -> [ComposeProject] {
+        ComposeMonitor.getMonetProjects()
     }
 }

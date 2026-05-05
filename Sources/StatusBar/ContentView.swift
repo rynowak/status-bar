@@ -9,10 +9,17 @@ struct ContentView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             systemSection
-            Divider()
-            buildsSection
-            Divider()
-            vsCodeSection
+
+            if !state.composeProjects.isEmpty {
+                Divider()
+                monetSection
+            }
+
+            if !state.builds.isEmpty || !state.vsCodeProcesses.isEmpty {
+                Divider()
+                dotNetSection
+            }
+
             Divider()
             Toggle("Launch at Login", isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, newValue in
@@ -60,37 +67,36 @@ struct ContentView: View {
         }
     }
 
-    private var buildsSection: some View {
+    private var monetSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(".NET Builds (\(state.builds.count))")
+            Text("Monet")
                 .font(.headline)
 
-            if state.builds.isEmpty {
-                Text("No active builds")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(state.builds.filter { $0.kind != .msbuildWorker }) { build in
-                    HStack {
-                        Image(
-                            systemName: build.kind == .vbcsCompiler
-                                ? "server.rack" : "hammer")
-                        Text(build.displayName)
-                        Spacer()
-                        Text(formatResources(cpu: build.cpuPercent, mem: build.memoryGB))
-                            .foregroundStyle(.secondary)
+            ForEach(state.composeProjects) { project in
+                DisclosureGroup {
+                    let columns = [GridItem(.flexible()), GridItem(.flexible())]
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 4) {
+                        ForEach(project.activeServices) { service in
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(service.isRunning ? .green : .red)
+                                    .frame(width: 6, height: 6)
+                                Text(service.service)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .lineLimit(1)
+                            }
+                        }
                     }
-                }
-
-                let workers = state.builds.filter({ $0.kind == .msbuildWorker })
-                let workerCount = workers.count
-                if workerCount > 0 {
-                    let totalCpu = workers.reduce(0.0) { $0 + $1.cpuPercent }
-                    let totalMem = workers.reduce(0.0) { $0 + $1.memoryGB }
+                    .padding(.top, 2)
+                    .padding(.leading, 16)
+                } label: {
                     HStack {
-                        Image(systemName: "gearshape.2")
-                        Text("MSBuild workers (\(workerCount))")
+                        Circle()
+                            .fill(project.isHealthy ? .green : .yellow)
+                            .frame(width: 8, height: 8)
+                        Text(project.name)
                         Spacer()
-                        Text(formatResources(cpu: totalCpu, mem: totalMem))
+                        Text("\(project.runningCount)/\(project.activeCount)")
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -98,23 +104,45 @@ struct ContentView: View {
         }
     }
 
-    private var vsCodeSection: some View {
+    private var dotNetSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("VS Code (\(state.vsCodeProcesses.count))")
+            let totalCount = state.builds.count + state.vsCodeProcesses.count
+            Text(".NET (\(totalCount))")
                 .font(.headline)
 
-            if state.vsCodeProcesses.isEmpty {
-                Text("No VS Code processes")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(state.vsCodeProcesses) { process in
-                    HStack {
-                        Image(systemName: "chevron.left.forwardslash.chevron.right")
-                        Text(process.displayName)
-                        Spacer()
-                        Text(formatResources(cpu: process.cpuPercent, mem: process.memoryGB))
-                            .foregroundStyle(.secondary)
-                    }
+            ForEach(state.builds.filter { $0.kind != .msbuildWorker }) { build in
+                HStack {
+                    Image(
+                        systemName: build.kind == .vbcsCompiler
+                            ? "server.rack" : "hammer")
+                    Text(build.displayName)
+                    Spacer()
+                    Text(formatResources(cpu: build.cpuPercent, mem: build.memoryGB))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            let workers = state.builds.filter({ $0.kind == .msbuildWorker })
+            let workerCount = workers.count
+            if workerCount > 0 {
+                let totalCpu = workers.reduce(0.0) { $0 + $1.cpuPercent }
+                let totalMem = workers.reduce(0.0) { $0 + $1.memoryGB }
+                HStack {
+                    Image(systemName: "gearshape.2")
+                    Text("MSBuild workers (\(workerCount))")
+                    Spacer()
+                    Text(formatResources(cpu: totalCpu, mem: totalMem))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            ForEach(state.vsCodeProcesses) { process in
+                HStack {
+                    Image(systemName: "chevron.left.forwardslash.chevron.right")
+                    Text(process.displayName)
+                    Spacer()
+                    Text(formatResources(cpu: process.cpuPercent, mem: process.memoryGB))
+                        .foregroundStyle(.secondary)
                 }
             }
         }
