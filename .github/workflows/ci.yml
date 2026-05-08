@@ -18,6 +18,14 @@ jobs:
       - name: Build DMG
         run: make dmg
 
+      - name: Smoke test
+        run: |
+          .build/bundle/StatusBar.app/Contents/MacOS/StatusBar &
+          APP_PID=$!
+          sleep 2
+          kill $APP_PID 2>/dev/null
+          wait $APP_PID 2>/dev/null || true
+
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
